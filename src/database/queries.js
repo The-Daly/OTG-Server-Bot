@@ -88,47 +88,6 @@ async function getTradeStats(discordId) {
   };
 }
 
-// ── Lesson Progress ────────────────────────────────────────────────────────────
-
-async function getLessonProgress(discordId) {
-  const db = readDB();
-  return db.lesson_progress
-    .filter(l => l.user_id === discordId)
-    .sort((a, b) => a.lesson_number - b.lesson_number);
-}
-
-async function completeLesson(discordId, lessonNumber) {
-  await getOrCreateUser(discordId);
-  const db = readDB();
-
-  let entry = db.lesson_progress.find(
-    l => l.user_id === discordId && l.lesson_number === lessonNumber
-  );
-
-  if (entry?.completed) return entry;
-
-  if (entry) {
-    entry.completed = true;
-  } else {
-    entry = { user_id: discordId, lesson_number: lessonNumber, completed: true };
-    db.lesson_progress.push(entry);
-  }
-
-  writeDB(db);
-  await updateUserXP(discordId, 25);
-
-  // Update lesson_progress count on user
-  const progress = db.lesson_progress.filter(l => l.user_id === discordId && l.completed);
-  const dbFresh = readDB();
-  const user = dbFresh.users.find(u => u.discord_id === discordId);
-  if (user) {
-    user.lesson_progress = progress.length;
-    writeDB(dbFresh);
-  }
-
-  return entry;
-}
-
 module.exports = {
   getOrCreateUser,
   updateUserXP,
@@ -136,6 +95,4 @@ module.exports = {
   logTrade,
   getRecentTrades,
   getTradeStats,
-  getLessonProgress,
-  completeLesson,
 };

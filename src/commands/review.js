@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 const db = require('../database/queries');
 const embeds = require('../utils/embeds');
 const { generateTradeReview } = require('../services/anthropic');
@@ -9,7 +9,7 @@ module.exports = {
     .setDescription('Review your trading performance and get AI feedback'),
 
   async execute(interaction) {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     try {
       const discordId = interaction.user.id;

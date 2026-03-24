@@ -5,6 +5,6 @@ module.exports = {
   once: true,
   execute(client) {
     console.log(`OTG Bot online as ${client.user.tag}`);
-    client.user.setActivity('/trade | OTG Academy');
+    client.user.setActivity('/otg | OTG Academy');
   },
 };

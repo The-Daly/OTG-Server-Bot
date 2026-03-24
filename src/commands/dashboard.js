@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const db = require('../database/queries');
 const embeds = require('../utils/embeds');
 
@@ -8,18 +8,17 @@ module.exports = {
     .setDescription('View your OTG Trading Academy progress dashboard'),
 
   async execute(interaction) {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     try {
       const discordId = interaction.user.id;
-      const [user, stats, lessonProgress] = await Promise.all([
+      const [user, stats] = await Promise.all([
         db.getOrCreateUser(discordId),
         db.getTradeStats(discordId),
-        db.getLessonProgress(discordId),
       ]);
 
       await interaction.editReply({
-        embeds: [embeds.dashboardEmbed(user, stats, lessonProgress)],
+        embeds: [embeds.dashboardEmbed(user, stats)],
       });
     } catch (error) {
       console.error('Dashboard command error:', error);

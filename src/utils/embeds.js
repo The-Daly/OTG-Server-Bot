@@ -4,15 +4,14 @@ const { COLORS } = require('./constants');
 function tradeMenuEmbed() {
   return new EmbedBuilder()
     .setColor(COLORS.PRIMARY)
-    .setTitle('📈 OTG Trading Academy')
+    .setTitle('OTG Trading Academy')
     .setDescription(
-      'Welcome to your trading hub.\n\n' +
-      '📝 **Log Trade** — Record a trade\n' +
-      '🔍 **Review** — Check your performance\n' +
-      '📊 **Chart Training** — Practice analysis\n' +
-      '📖 **Micro Lessons 1-3** — Learn the fundamentals\n' +
-      '🏆 **Dashboard** — View your progress\n\n' +
-      'Select an option below to get started.'
+      'Master the markets with structure, strategy, and discipline.\n\n' +
+      '📈 Learn how to trade with confidence\n' +
+      '🧠 Build real skills — not guesswork\n' +
+      '📊 Track your growth and performance\n' +
+      '🎯 Turn knowledge into execution\n\n' +
+      'Select an option below to begin your journey.'
     )
     .setFooter({ text: '🎓 OTG Trading Academy | Brian Oates' })
     .setTimestamp();
@@ -95,48 +94,29 @@ function chartResultEmbed(isCorrect, explanation) {
     .setFooter({ text: isCorrect ? '+15 XP earned' : '+5 XP for trying' });
 }
 
-function lessonEmbed(lesson) {
-  const embed = new EmbedBuilder()
-    .setColor(COLORS.PRIMARY)
-    .setTitle(`Lesson ${lesson.number}: ${lesson.title}`)
-    .setDescription(lesson.description)
-    .addFields(
-      { name: 'Source', value: `[View on OTG Academy](${lesson.sourceUrl})` },
-    )
-    .setFooter({ text: 'Answer the review question to complete this lesson' });
-
-  if (lesson.imageUrl) {
-    embed.setImage(lesson.imageUrl);
-  }
-
-  return embed;
-}
-
-function lessonResultEmbed(lessonNumber, isCorrect, feedback) {
+function aiCoachEmbed(question, response) {
+  const truncatedQuestion = question.length > 1024 ? question.slice(0, 1021) + '...' : question;
+  const truncatedResponse = response.length > 1024 ? response.slice(0, 1021) + '...' : response;
   return new EmbedBuilder()
-    .setColor(isCorrect ? COLORS.SUCCESS : COLORS.DANGER)
-    .setTitle(isCorrect ? `Lesson ${lessonNumber} Complete!` : `Lesson ${lessonNumber} — Try Again`)
-    .setDescription(feedback)
-    .setFooter({ text: isCorrect ? '+25 XP earned' : 'Review the lesson and try again' });
+    .setColor(COLORS.PRIMARY)
+    .setTitle('🤖 OTG AI Trading Coach')
+    .addFields(
+      { name: 'Your Question', value: truncatedQuestion },
+      { name: 'Coach Response', value: truncatedResponse },
+    )
+    .setFooter({ text: 'Powered by Claude AI | OTG Trading Academy' })
+    .setTimestamp();
 }
 
-function dashboardEmbed(user, stats, lessonProgress) {
-  const lessonsCompleted = lessonProgress.filter(l => l.completed).length;
-  const lessonStatus = [1, 2, 3].map(n => {
-    const done = lessonProgress.find(l => l.lesson_number === n)?.completed;
-    return `Lesson ${n}: ${done ? 'Completed' : 'Not started'}`;
-  }).join('\n');
-
+function dashboardEmbed(user, stats) {
   return new EmbedBuilder()
     .setColor(COLORS.GOLD)
     .setTitle('Your Progress Dashboard')
     .addFields(
       { name: 'XP', value: `${user.xp}`, inline: true },
       { name: 'Trades Logged', value: `${user.trades_logged}`, inline: true },
-      { name: 'Lessons Completed', value: `${lessonsCompleted}/3`, inline: true },
       { name: 'Win Rate', value: `${stats.winRate}%`, inline: true },
       { name: 'Avg Result', value: `${stats.avgGainLoss > 0 ? '+' : ''}${stats.avgGainLoss}%`, inline: true },
-      { name: 'Lesson Progress', value: lessonStatus },
     )
     .setFooter({ text: 'OTG Trading Academy | Keep grinding!' })
     .setTimestamp();
@@ -149,9 +129,8 @@ module.exports = {
   tradeLogSuccessEmbed,
   reviewEmbed,
   aiReviewEmbed,
+  aiCoachEmbed,
   chartQuestionEmbed,
   chartResultEmbed,
-  lessonEmbed,
-  lessonResultEmbed,
   dashboardEmbed,
 };
