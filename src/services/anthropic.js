@@ -1,23 +1,35 @@
-const Anthropic = require('@anthropic-ai/sdk');
+const BASE44_URL = 'https://trade-mind-ai-copy-45442b24.base44.app/functions';
 
-const client = process.env.ANTHROPIC_API_KEY
-  ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-  : null;
+async function callBase44LLM(prompt, context) {
+  if (!process.env.BASE44_API_KEY) return null;
+
+  const response = await fetch(`${BASE44_URL}/answerTradingQuestion`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      question: prompt,
+      context: context || '',
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Base44 API error: ${response.status} ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.answer || data.response || data.text || String(data);
+}
 
 async function generateTradeReview(stats, recentTrades) {
   if (stats.totalTrades === 0) {
     return 'You haven\'t logged any trades yet. Start tracking your trades to get personalized feedback.';
   }
 
-  if (!client) {
-    return fallbackTradeReview(stats, recentTrades);
-  }
-
   const recentSummary = recentTrades.slice(0, 5).map(t =>
     `${t.symbol || 'Unknown'}: ${t.gain_loss_percent > 0 ? '+' : ''}${t.gain_loss_percent}% | ${t.portfolio_size_used}% portfolio`
   ).join('\n');
 
-  const prompt = `You are a professional trading coach for OTG Trading Academy. Review this trader's performance and give concise, actionable feedback in 3-4 short paragraphs. Be direct and encouraging but honest.
+  const prompt = `Review this trader's performance and give concise, actionable feedback in 3-4 short paragraphs. Be direct and encouraging but honest.
 
 Stats:
 - Total trades: ${stats.totalTrades}
@@ -30,49 +42,44 @@ ${recentSummary}
 
 Keep the tone professional, motivating, and specific. No bullet points — write in short paragraphs. Max 150 words.`;
 
-  const message = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 300,
-    messages: [{ role: 'user', content: prompt }],
-  });
+  try {
+    const result = await callBase44LLM(prompt, 'You are a professional trading coach for OTG Trading Academy.');
+    if (result) return result;
+  } catch (error) {
+    console.error('Base44 LLM error (trade review):', error);
+  }
 
-  return message.content[0].text;
+  return fallbackTradeReview(stats, recentTrades);
 }
 
 async function generateChartExplanation(question, correctAnswer, userAnswer) {
-  if (!client) {
-    return fallbackChartExplanation(question, correctAnswer, userAnswer);
-  }
-
   const isCorrect = correctAnswer === userAnswer;
 
-  const prompt = `You are a trading educator at OTG Trading Academy explaining EMA (Exponential Moving Average) concepts.
-
-Question: ${question}
+  const prompt = `Question: ${question}
 Correct answer: ${correctAnswer}
 Student answered: ${userAnswer}
 Result: ${isCorrect ? 'CORRECT' : 'INCORRECT'}
 
 Give a brief explanation (2-3 sentences) of why "${correctAnswer}" is correct and what the trader should understand about this concept. If they got it wrong, gently correct them. Be concise and educational.`;
 
-  const message = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 150,
-    messages: [{ role: 'user', content: prompt }],
-  });
+  try {
+    const result = await callBase44LLM(prompt, 'You are a trading educator at OTG Trading Academy explaining EMA concepts.');
+    if (result) {
+      const prefix = isCorrect ? '✅ Correct! ' : `❌ The correct answer is **${correctAnswer}**. `;
+      return prefix + result;
+    }
+  } catch (error) {
+    console.error('Base44 LLM error (chart explanation):', error);
+  }
 
-  const prefix = isCorrect ? '✅ Correct! ' : `❌ The correct answer is **${correctAnswer}**. `;
-  return prefix + message.content[0].text;
+  return fallbackChartExplanation(question, correctAnswer, userAnswer);
 }
 
 async function generateAICoachResponse(userMessage, recentTrades, stats) {
-  if (!client) {
-    return 'AI Coach is not available right now. Please try again later.';
-  }
+  let context = 'You are an expert trading coach at OTG Trading Academy. You help traders improve their skills, mindset, and strategy. Be concise, direct, and encouraging. Focus on practical advice. Keep responses under 300 words.';
 
-  let context = '';
   if (stats && stats.totalTrades > 0) {
-    context = `\n\nTrader context: ${stats.totalTrades} trades logged, ${stats.winRate}% win rate, avg P&L ${stats.avgGainLoss}% per trade.`;
+    context += `\n\nTrader context: ${stats.totalTrades} trades logged, ${stats.winRate}% win rate, avg P&L ${stats.avgGainLoss}% per trade.`;
     if (recentTrades && recentTrades.length > 0) {
       const recent = recentTrades.slice(0, 3).map(t =>
         `${t.symbol || 'trade'}: ${t.gain_loss_percent > 0 ? '+' : ''}${t.gain_loss_percent}%`
@@ -81,17 +88,44 @@ async function generateAICoachResponse(userMessage, recentTrades, stats) {
     }
   }
 
-  const message = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 400,
-    system: `You are an expert trading coach at OTG Trading Academy. You help traders improve their skills, mindset, and strategy. Be concise, direct, and encouraging. Focus on practical advice. Keep responses under 300 words.${context}`,
-    messages: [{ role: 'user', content: userMessage }],
-  });
+  try {
+    const result = await callBase44LLM(userMessage, context);
+    if (result) return result;
+  } catch (error) {
+    console.error('Base44 LLM error (AI coach):', error);
+  }
 
-  return message.content[0].text;
+  return 'AI Coach is not available right now. Please try again later.';
 }
 
-// Fallback static responses when no API key is set
+async function generateMarketNews() {
+  const prompt = `Give me today's most important market news and catalysts for traders. Include:
+
+1. Breaking market news or major moves
+2. Upcoming or recent earnings announcements
+3. Key economic events (CPI, FOMC, interest rates, jobs data)
+4. FDA approvals, IPOs, or major catalysts
+5. Any significant pre-market or after-hours movers
+
+Format each item as:
+**[CATEGORY]** headline
+Brief 1-2 sentence summary of why it matters for traders.
+
+Give 5-7 items total. Be specific with ticker symbols, numbers, and dates. Focus on what's actionable for traders today.`;
+
+  const context = 'You are a professional market news analyst for OTG Trading Academy. Deliver fast, clear, actionable market intelligence. Use current real-time data. Today\'s date is ' + new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) + '.';
+
+  try {
+    const result = await callBase44LLM(prompt, context);
+    if (result) return result;
+  } catch (error) {
+    console.error('Base44 LLM error (market news):', error);
+  }
+
+  return 'Market news is not available right now. Please try again later.';
+}
+
+// Fallback static responses when LLM is unavailable
 function fallbackTradeReview(stats, recentTrades) {
   const lines = [];
   if (stats.winRate >= 60) {
@@ -135,4 +169,5 @@ module.exports = {
   generateTradeReview,
   generateChartExplanation,
   generateAICoachResponse,
+  generateMarketNews,
 };

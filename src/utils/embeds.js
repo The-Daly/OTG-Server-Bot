@@ -108,6 +108,16 @@ function aiCoachEmbed(question, response) {
     .setTimestamp();
 }
 
+function marketNewsEmbed(newsContent) {
+  const truncated = newsContent.length > 4096 ? newsContent.slice(0, 4093) + '...' : newsContent;
+  return new EmbedBuilder()
+    .setColor(COLORS.WARNING)
+    .setTitle('📰 Market News & Catalysts')
+    .setDescription(truncated)
+    .setFooter({ text: 'Powered by Base44 AI | OTG Trading Academy' })
+    .setTimestamp();
+}
+
 function dashboardEmbed(user, stats) {
   return new EmbedBuilder()
     .setColor(COLORS.GOLD)
@@ -132,5 +142,6 @@ module.exports = {
   aiCoachEmbed,
   chartQuestionEmbed,
   chartResultEmbed,
+  marketNewsEmbed,
   dashboardEmbed,
 };

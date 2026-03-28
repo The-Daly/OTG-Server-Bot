@@ -1,9 +1,12 @@
 const { SlashCommandBuilder, MessageFlags, PermissionFlagsBits, ChannelType } = require('discord.js');
 
+// Default emojis if no reactions exist on the message
+const DEFAULT_EMOJIS = ['❤️', '👀', '💯'];
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('react')
-    .setDescription('Add 3 random server emojis to a message (Admin only)')
+    .setDescription('Add reactions to a message (Admin only)')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addStringOption(option =>
       option
@@ -14,25 +17,6 @@ module.exports = {
 
   async execute(interaction) {
     const messageId = interaction.options.getString('message_id');
-
-    // Get all custom emojis from the server
-    const serverEmojis = interaction.guild.emojis.cache.filter(e => e.available);
-
-    if (serverEmojis.size < 3) {
-      await interaction.reply({
-        content: 'This server needs at least 3 custom emojis for this command.',
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
-
-    // Pick 3 random unique emojis
-    const emojiArray = [...serverEmojis.values()];
-    const picked = [];
-    while (picked.length < 3) {
-      const rand = emojiArray[Math.floor(Math.random() * emojiArray.length)];
-      if (!picked.includes(rand)) picked.push(rand);
-    }
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
@@ -55,12 +39,33 @@ module.exports = {
         return;
       }
 
-      for (const emoji of picked) {
-        await message.react(emoji);
+      // Get existing reactions on the message
+      const existingReactions = message.reactions.cache;
+      let toReact = [];
+
+      if (existingReactions.size > 0) {
+        // Add the bot's reaction to emojis already on the message
+        for (const [, reaction] of existingReactions) {
+          const emoji = reaction.emoji;
+          toReact.push(emoji.id ? `<:${emoji.name}:${emoji.id}>` : emoji.name);
+        }
+      } else {
+        // No reactions yet — use ❤️ 😍 💯
+        toReact = [...DEFAULT_EMOJIS];
+      }
+
+      const reacted = [];
+      for (const emoji of toReact) {
+        try {
+          await message.react(emoji);
+          reacted.push(emoji);
+        } catch (err) {
+          console.error(`Failed to react with ${emoji}:`, err.message);
+        }
       }
 
       await interaction.editReply({
-        content: `Reacted to message in #${message.channel.name} with ${picked.map(e => e.toString()).join(' ')}`,
+        content: `Reacted to message in #${message.channel.name} with ${reacted.join(' ')}`,
       });
     } catch (error) {
       console.error('React command error:', error);
